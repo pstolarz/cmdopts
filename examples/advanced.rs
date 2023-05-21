@@ -69,7 +69,6 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
 
     #[derive(Clone)]
     #[derive(Copy)]
-    #[derive(Debug)]
     enum OptId {
         OptA,
         OptB,

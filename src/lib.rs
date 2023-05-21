@@ -10,7 +10,6 @@
 // See the License for more information.
 //
 
-//!
 //! GNU-like command line options parser with long and short formats. Optional
 //! argument (aka option's value) may be associated with an option. The parsing
 //! routine `parse_opts()` accepts two user callbacks:
@@ -362,6 +361,7 @@ where
 /// retrieve information about parsed option followed by call to `opt_h()` to
 /// handle that option.
 ///
+#[inline]
 pub fn parse_opts<Fi, Fh>(opt_i: Fi, opt_h: Fh) -> Result<(), ParseError>
 where
     Fi: FnMut(&CmdOpt) -> InfoCode,
