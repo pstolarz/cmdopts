@@ -1,3 +1,49 @@
+//
+// Copyright (c) 2023 Piotr Stolarz
+// GNU-like Command line options parser.
+//
+// Distributed under the 2-clause BSD License (the License)
+// see accompanying file LICENSE for details.
+//
+// This software is distributed WITHOUT ANY WARRANTY; without even the
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the License for more information.
+//
+
+//!
+//! GNU-like command line options parser with long and short formats. Optional
+//! argument (aka option's value) may be associated with an option. The parsing
+//! routine `parse_opts()` accepts two user callbacks:
+//! * `opt_i()` provides parser with a context the parsed option may be used,
+//! * `opt_h()` is the actual handler of the option.
+//!
+//! The library doesn't interpret parsed options, rather passes them to the
+//! user's handler to further processing. The idea is similar to `getopt(3)`
+//! and `getopt_long(3)` routines.
+//!
+//! # Options Format
+//!
+//! ## Short format
+//!
+//! All options starting with single hyphen character `-` are short options. For
+//! example: `-a -b -c` constitute 3 short options. These options may grouped into
+//! single block of options as `-abc`.
+//!
+//! If a short option requires an argument, the argument may be provided directly
+//! after the option or separated by white space(s): `-dARG` or `-d ARG`.
+//!
+//! If short options are grouped into a block, one the last one may be provided
+//! with an argument. For example: `-abcdARG` or `-abcd ARG` is equivalent to
+//! `-a -b -c -d ARG`, where `-a` `-b` `-c` don't have an argument, while `-d`
+//! does.
+//!
+//! ## Long format
+//!
+//! If an option starts with `--` it's long format option. For example `--help`.
+//! Long options may not be formed into a group. An argument may be provided to
+//! the long-format option directly after `=` character or followed by whitespace(s):
+//! `--config=FILE` or `--config FILE`.
+
 use std::env;
 use std::error;
 use std::fmt;
@@ -33,7 +79,7 @@ impl fmt::Display for CmdOpt {
 }
 
 ///
-/// Parser error codes.
+/// Parser error codes returned by the option handler `opt_h()`.
 ///
 #[derive(Clone)]
 #[derive(Debug)]
@@ -72,7 +118,7 @@ impl fmt::Display for ParseError {
 impl error::Error for ParseError {}
 
 ///
-/// Option process codes.
+/// Option process codes returned by the option handler `opt_h()`.
 ///
 #[derive(Clone)]
 #[derive(Copy)]
@@ -101,7 +147,7 @@ pub enum ProcessCode {
 }
 
 ///
-/// Option info codes.
+/// Option info codes returned by the `opt_i()` callback.
 ///
 #[derive(Clone)]
 #[derive(Copy)]
@@ -119,7 +165,7 @@ pub enum InfoCode {
 }
 
 ///
-/// The enumeration specifies how a value has been provided for an option
+/// The enumeration specifies how a value has been provided for an option.
 ///
 #[derive(Clone)]
 #[derive(Copy)]
@@ -161,7 +207,7 @@ macro_rules! process_h_rc {
     }
 }
 
-fn parse_args_iter<I, Fi, Fh>(args: I, opt_i: Fi, opt_h: Fh) -> Result<(), ParseError>
+fn parse_opts_iter<I, Fi, Fh>(opts: I, opt_i: Fi, opt_h: Fh) -> Result<(), ParseError>
 where
     I: Iterator<Item = String>,
     Fi: FnMut(&CmdOpt) -> InfoCode,
@@ -176,7 +222,7 @@ where
 
     let mut opt: Option<CmdOpt> = None;
 
-    for tkn in args.into_iter() {
+    for tkn in opts.into_iter() {
         if val_mode || val_req || !tkn.starts_with("-") {
             //
             // Option's value or standalone value.
@@ -312,16 +358,16 @@ where
 ///
 /// Parse process command line options.
 ///
-/// For every parsed option user's provided option `opt_i` is called-back to
-/// retrieve information about parsed option followed by call to `opt_h` to
+/// For every parsed option user's provided option `opt_i()` is called-back to
+/// retrieve information about parsed option followed by call to `opt_h()` to
 /// handle that option.
 ///
-pub fn parse_args<Fi, Fh>(opt_i: Fi, opt_h: Fh) -> Result<(), ParseError>
+pub fn parse_opts<Fi, Fh>(opt_i: Fi, opt_h: Fh) -> Result<(), ParseError>
 where
     Fi: FnMut(&CmdOpt) -> InfoCode,
     Fh: FnMut(&Option<CmdOpt>, &Option<OptVal>) -> Result<ProcessCode, ParseError>
 {
-    parse_args_iter(env::args().skip(1), opt_i, opt_h)
+    parse_opts_iter(env::args().skip(1), opt_i, opt_h)
 }
 
 #[allow(unused_imports)]
@@ -331,11 +377,11 @@ mod tests {
     #[test]
     fn test_empty_opt()
     {
-        let args = vec!("-")
+        let opts = vec!("-")
             .into_iter()
             .map(|v| v.to_string());
 
-        let rc = parse_args_iter(args,
+        let rc = parse_opts_iter(opts,
             |_| {
                 return NoValueOpt;
             },
@@ -355,7 +401,7 @@ mod tests {
     #[test]
     fn test_short_noval()
     {
-        let args = vec!(
+        let opts = vec!(
                 "-abc", // group of 3 short options
                 "-d",   // single short option
                 "-e")   // invalid option
@@ -363,7 +409,7 @@ mod tests {
             .map(|v| v.to_string());
 
         let mut i = 0;
-        let rc = parse_args_iter(args,
+        let rc = parse_opts_iter(opts,
             |opt| {
                 if let Short(o) = opt {
                     if "abcd".contains(*o) {
@@ -402,14 +448,14 @@ mod tests {
     #[test]
     fn test_short_val()
     {
-        let args = vec!(
+        let opts = vec!(
                 "-abc",     // single short options value read from the group
                 "-d", "-e") // short option with value
             .into_iter()
             .map(|v| v.to_string());
 
         let mut i = 0;
-        let rc = parse_args_iter(args,
+        let rc = parse_opts_iter(opts,
             |opt| {
                 if let Short(o) = opt {
                     if "ad".contains(*o) {
@@ -443,7 +489,7 @@ mod tests {
     #[test]
     fn test_long()
     {
-        let args = vec!(
+        let opts = vec!(
                 "--a",
                 "--b=v",    // option with value (case 1)
                 "--b", "v", // option with value (case 2)
@@ -452,7 +498,7 @@ mod tests {
             .map(|v| v.to_string());
 
         let mut i = 0;
-        let rc = parse_args_iter(args,
+        let rc = parse_opts_iter(opts,
             |opt| {
                 if let Long(o) = opt {
                     match o.as_str() {
@@ -497,16 +543,16 @@ mod tests {
     #[test]
     fn test_inv_long_opt()
     {
-        let args = vec!(
+        let opts = vec!(
             "--a",
             "--a=v");
 
-        for a in args.into_iter() {
-            let arg = vec!(a)
+        for a in opts.into_iter() {
+            let opt = vec!(a)
                 .into_iter()
                 .map(|v| v.to_string());
 
-            let rc = parse_args_iter(arg,
+            let rc = parse_opts_iter(opt,
                  |_| {
                      InfoCode::InvalidOpt
                  },
@@ -532,12 +578,12 @@ mod tests {
     fn test_last_opt()
     {
         // ok, value provided
-        let arg = vec!("--a", "v")
+        let opt = vec!("--a", "v")
             .into_iter()
             .map(|v| v.to_string());
 
         let mut i = 0;
-        let rc = parse_args_iter(arg,
+        let rc = parse_opts_iter(opt,
              |_| {
                  InfoCode::ValueOpt
              },
@@ -558,11 +604,11 @@ mod tests {
         assert_eq!(rc, Ok(()));
 
         // error, required value not provided
-        let arg = vec!("-a")
+        let opt = vec!("-a")
             .into_iter()
             .map(|v| v.to_string());
 
-        let rc = parse_args_iter(arg,
+        let rc = parse_opts_iter(opt,
              |_| {
                  InfoCode::ValueOpt
              },
@@ -586,7 +632,7 @@ mod tests {
     #[test]
     fn test_modes_switch()
     {
-        let args = vec!(
+        let opts = vec!(
                 "-a",   // short option
                 "--",   // switch to values-parsing-mode
                 "--b",  // standalone value
@@ -600,7 +646,7 @@ mod tests {
             .map(|v| v.to_string());
 
         let mut i = 0;
-        let rc = parse_args_iter(args,
+        let rc = parse_opts_iter(opts,
             |_| {
                 InfoCode::NoValueOpt
             },
@@ -647,7 +693,7 @@ mod tests {
     #[test]
     fn test_break()
     {
-        let args = vec!(
+        let opts = vec!(
                 "-a",       // 1st short option
                 "--help",   // will cause break
                 "-b")       // ignored
@@ -655,7 +701,7 @@ mod tests {
             .map(|v| v.to_string());
 
         let mut i = 0;
-        let rc = parse_args_iter(args,
+        let rc = parse_opts_iter(opts,
             |_| {
                 InfoCode::NoValueOpt
             },

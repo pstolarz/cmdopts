@@ -1,4 +1,16 @@
-use cmdopts::{parse_args, InfoCode, ProcessCode, ParseError, CmdOpt};
+// 
+// Copyright (c) 2023 Piotr Stolarz
+// GNU-like Command line options parser.
+// 
+// Distributed under the 2-clause BSD License (the License)
+// see accompanying file LICENSE for details.
+// 
+// This software is distributed WITHOUT ANY WARRANTY; without even the
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the License for more information.
+// 
+
+use cmdopts::{parse_opts, InfoCode, ProcessCode, ParseError, CmdOpt};
 
 fn print_usage()
 {
@@ -75,7 +87,7 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
     // file parsing index (1-based), 0 for option parsing mode
     let mut file_i = 0;
 
-    parse_args(
+    parse_opts(
         |opt| {
             match opt {
                 Short(c) => {
@@ -106,7 +118,7 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
             // if true, mode needs to be switched at the return of the handler
             let mut switch_mode = false;
 
-            // 1st standalone value switches the parser into files args
+            // 1st standalone value switches the parser into files parsing mode
             if file_i <= 0 && opt.is_none() {
                 file_i = 1;
                 switch_mode = true;
@@ -189,7 +201,7 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
                 Ok(ProcessCode::Continue)
             } else {
                 //
-                // File arguments parser
+                // Files parser
                 //
                 let val_str = &val.as_ref().unwrap().val;
 
