@@ -1,3 +1,7 @@
+[![crates.io](https://img.shields.io/crates/v/cmdopts)](https://crates.io/crates/cmdopts)
+[![tests](https://github.com/pstolarz/cmdopts/workflows/tests/badge.svg?branch=master)](https://github.com/pstolarz/cmdopts/actions/workflows/rust.yml)
+[![docs.rs](https://img.shields.io/docsrs/cmdopts)](https://docs.rs/cmdopts)
+
 # Command Line Options Parser
 
 Simple command line parser in Rust.
