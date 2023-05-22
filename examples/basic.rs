@@ -13,7 +13,6 @@
 use cmdopts::{parse_opts, InfoCode, ProcessCode, ParseError, CmdOpt};
 
 #[allow(unused_imports)]
-#[allow(unused_must_use)]
 pub fn main()
 {
     use CmdOpt::*;

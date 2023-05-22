@@ -10,7 +10,7 @@
 // See the License for more information.
 //
 
-//! GNU-like command line options parser with long and short formats. Optional
+//! GNU-like command line options parser for long and short formats. Optional
 //! argument (aka option's value) may be associated with an option. The parsing
 //! routine `parse_opts()` accepts two user callbacks:
 //! * `opt_i()` provides parser with a context the parsed option may be used,
@@ -24,14 +24,14 @@
 //!
 //! ## Short format
 //!
-//! All options starting with single hyphen character `-` are short options. For
-//! example: `-a -b -c` constitute 3 short options. These options may grouped into
-//! single block of options as `-abc`.
+//! All options starting with a single hyphen character `-` are short options.
+//! For example: `-a -b -c` constitute 3 short options. These options may grouped
+//! into a single block of options as `-abc`.
 //!
 //! If a short option requires an argument, the argument may be provided directly
-//! after the option or separated by white space(s): `-dARG` or `-d ARG`.
+//! after the option or separated by white-space(s): `-dARG` or `-d ARG`.
 //!
-//! If short options are grouped into a block, one the last one may be provided
+//! If short options are grouped into a block, the last one may be provided
 //! with an argument. For example: `-abcdARG` or `-abcd ARG` is equivalent to
 //! `-a -b -c -d ARG`, where `-a` `-b` `-c` don't have an argument, while `-d`
 //! does.
@@ -40,8 +40,8 @@
 //!
 //! If an option starts with `--` it's long format option. For example `--help`.
 //! Long options may not be formed into a group. An argument may be provided to
-//! the long-format option directly after `=` character or followed by whitespace(s):
-//! `--config=FILE` or `--config FILE`.
+//! the long-format option directly after `=` character or followed by
+//! white-space(s): `--config=FILE` or `--config FILE`.
 
 use std::env;
 use std::error;
