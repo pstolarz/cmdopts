@@ -31,7 +31,7 @@ pub fn main()
     let rc = parse_opts(
         // Options info provider
         //
-        |opt| {
+        |opt, _| {
             match opt {
                 Short(c) => {
                     match c {

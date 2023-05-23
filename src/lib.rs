@@ -171,10 +171,11 @@ pub enum InfoCode {
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum OptValSpec {
-    /// Value provided as separate token for short or long option
+    /// Value provided as separate token for an option (long and short)
+    /// or standalone value without associated option.
     Standalone,
 
-    /// Value provided after '=' for long option
+    /// Value provided after '=' for long option.
     StandaloneEqu,
 
     /// Short option value provided as a tail of option(s) in a group
@@ -196,6 +197,38 @@ pub struct OptVal {
     pub val_spec: OptValSpec,
 }
 
+///
+/// Option constraints.
+///
+/// Mutable reference to an `OptConstr` object is passed to the `opt_i()`
+/// hander to provide ability to define additional constraints on a parsed
+/// option. The handler should call `OptConstr` public methods for the object
+/// to specify required constraints or remain the object untouched if no
+/// constraints are required.
+///
+pub struct OptConstr(u32);
+
+impl Default for OptConstr {
+    fn default() -> Self { OptConstr(0) }
+}
+
+impl OptConstr {
+    const NOT_IN_GROUP: u32 = 1;
+
+    ///
+    /// Option may not occur inside a group. Applies only for short options.
+    ///
+    #[inline]
+    pub fn not_in_group(&mut self) {
+        self.0 |= Self::NOT_IN_GROUP;
+    }
+
+    #[inline]
+    fn is_not_in_group(&mut self) -> bool {
+        (self.0 & Self::NOT_IN_GROUP) != 0
+    }
+}
+
 macro_rules! process_h_rc {
     ($rc:expr, $mod:expr) => {
         match $rc {
@@ -209,7 +242,7 @@ macro_rules! process_h_rc {
 fn parse_opts_iter<I, Fi, Fh>(opts: I, opt_i: Fi, opt_h: Fh) -> Result<(), ParseError>
 where
     I: Iterator<Item = String>,
-    Fi: FnMut(&CmdOpt) -> InfoCode,
+    Fi: FnMut(&CmdOpt, &mut OptConstr) -> InfoCode,
     Fh: FnMut(&Option<CmdOpt>, &Option<OptVal>) -> Result<ProcessCode, ParseError>
 {
     // convert to mutable
@@ -247,6 +280,7 @@ where
             // Long option. Note "--" is treated as short "-" option.
             //
             let _opt;
+            let mut constr: OptConstr = Default::default();
 
             if let Some(equ) = tkn.find('=') {
                 // value provided after '='
@@ -260,7 +294,7 @@ where
                     })
                 };
 
-                match opt_i(&_opt) {
+                match opt_i(&_opt, &mut constr) {
                     InfoCode::InvalidOpt => {
                         return Err(ParseError::InvalidOpt(_opt.clone(),
                             "Invalid option".to_string()));
@@ -276,7 +310,7 @@ where
                 }
             } else {
                 _opt = Long(tkn[2..].to_string());
-                match opt_i(&_opt) {
+                match opt_i(&_opt, &mut constr) {
                     InfoCode::InvalidOpt => {
                         return Err(ParseError::InvalidOpt(_opt.clone(),
                             "Invalid option".to_string()));
@@ -305,19 +339,26 @@ where
 
             // parse group of shorts options
             for (i, c) in opts_grp.char_indices() {
+                let mut constr: OptConstr = Default::default();
+                let _opt = Short(c);
+
                 // In case some option in the group requires an value,
                 // the remaining part of the group constitutes the value.
                 // In case last option in the group requires an value, the
                 // next token will be used as the value.
                 // If some of the option in the group suppresses options-parsing-mode,
                 // the mode is still valid until the entire group is handled.
-                let _opt = Short(c);
-                match opt_i(&_opt) {
+                match opt_i(&_opt, &mut constr) {
                     InfoCode::InvalidOpt => {
                         return Err(ParseError::InvalidOpt(_opt.clone(),
                             "Invalid option".to_string()));
                     },
                     ValueOpt => {
+                        if constr.is_not_in_group() && i > 0 {
+                            return Err(ParseError::InvalidOpt(_opt.clone(),
+                                "The option may not exist in group".to_string()));
+                        }
+
                         if i + 1 >= opts_grp_len {
                             // value provided in the next token
                             opt = Some(_opt);
@@ -335,6 +376,11 @@ where
                         break;
                     },
                     NoValueOpt => {
+                        if constr.is_not_in_group() && opts_grp.chars().count() > 1 {
+                            return Err(ParseError::InvalidOpt(_opt.clone(),
+                                "The option may not exist in group".to_string()));
+                        }
+
                         let h_rc = opt_h(&Some(_opt), &None)?;
                         process_h_rc!(h_rc, val_mode);
                     },
@@ -364,7 +410,7 @@ where
 #[inline]
 pub fn parse_opts<Fi, Fh>(opt_i: Fi, opt_h: Fh) -> Result<(), ParseError>
 where
-    Fi: FnMut(&CmdOpt) -> InfoCode,
+    Fi: FnMut(&CmdOpt, &mut OptConstr) -> InfoCode,
     Fh: FnMut(&Option<CmdOpt>, &Option<OptVal>) -> Result<ProcessCode, ParseError>
 {
     parse_opts_iter(env::args().skip(1), opt_i, opt_h)
@@ -382,7 +428,7 @@ mod tests {
             .map(|v| v.to_string());
 
         let rc = parse_opts_iter(opts,
-            |_| {
+            |_, _| {
                 return NoValueOpt;
             },
             |opt, val| {
@@ -410,7 +456,7 @@ mod tests {
 
         let mut i = 0;
         let rc = parse_opts_iter(opts,
-            |opt| {
+            |opt, _| {
                 if let Short(o) = opt {
                     if "abcd".contains(*o) {
                         NoValueOpt
@@ -456,7 +502,7 @@ mod tests {
 
         let mut i = 0;
         let rc = parse_opts_iter(opts,
-            |opt| {
+            |opt, _| {
                 if let Short(o) = opt {
                     if "ad".contains(*o) {
                         ValueOpt
@@ -499,7 +545,7 @@ mod tests {
 
         let mut i = 0;
         let rc = parse_opts_iter(opts,
-            |opt| {
+            |opt, _| {
                 if let Long(o) = opt {
                     match o.as_str() {
                         "a" | "c" => {
@@ -553,7 +599,7 @@ mod tests {
                 .map(|v| v.to_string());
 
             let rc = parse_opts_iter(opt,
-                 |_| {
+                 |_, _| {
                      InfoCode::InvalidOpt
                  },
                  |opt, val| {
@@ -584,7 +630,7 @@ mod tests {
 
         let mut i = 0;
         let rc = parse_opts_iter(opt,
-             |_| {
+             |_, _| {
                  InfoCode::ValueOpt
              },
              |opt, val| {
@@ -609,7 +655,7 @@ mod tests {
             .map(|v| v.to_string());
 
         let rc = parse_opts_iter(opt,
-             |_| {
+             |_, _| {
                  InfoCode::ValueOpt
              },
              |opt, val| {
@@ -647,7 +693,7 @@ mod tests {
 
         let mut i = 0;
         let rc = parse_opts_iter(opts,
-            |_| {
+            |_, _| {
                 InfoCode::NoValueOpt
             },
             |opt, val| {
@@ -702,7 +748,7 @@ mod tests {
 
         let mut i = 0;
         let rc = parse_opts_iter(opts,
-            |_| {
+            |_, _| {
                 InfoCode::NoValueOpt
             },
             |opt, val| {
@@ -723,5 +769,79 @@ mod tests {
         });
         assert_eq!(i, 2);
         assert_eq!(rc, Ok(()));
+    }
+
+    #[test]
+    fn test_not_in_group_constr()
+    {
+        // option w/o value test
+        let opts = vec!(
+                "-a",   // ok
+                "-ab")  // error
+            .into_iter()
+            .map(|v| v.to_string());
+
+        let mut i = 0;
+        let rc = parse_opts_iter(opts,
+            |opt, constr| {
+                if let Short('a') = opt {
+                    constr.not_in_group();
+                }
+                InfoCode::NoValueOpt
+            },
+            |opt, val| {
+                match (i, opt, val) {
+                    (0, Some(Short('a')), None) => {},
+                    _ => {
+                        println!("UNEXPECTED i:{}, opt:{:?}, val:{:?}", i, opt, val);
+                        assert!(false);
+                    },
+                };
+                i += 1;
+                Ok(Continue)
+        });
+        assert_eq!(i, 1);
+        if let Err(ParseError::InvalidOpt(Short(o), _)) = rc {
+            assert_eq!(o, 'a');
+        } else {
+            assert!(false);
+        }
+
+        // option w/value test
+        let opts = vec!(
+                "-av",  // ok
+                "-bav") // error
+            .into_iter()
+            .map(|v| v.to_string());
+
+        let mut i = 0;
+        let rc = parse_opts_iter(opts,
+            |opt, constr| {
+                if let Short('a') = opt {
+                    constr.not_in_group();
+                    InfoCode::ValueOpt
+                } else {
+                    InfoCode::NoValueOpt
+                }
+            },
+            |opt, val| {
+                match (i, opt, val) {
+                    (0, Some(Short('a')), Some(v))
+                        if v.val == "v" && v.val_spec == Group => {},
+                    (1, Some(Short('b')), None) => {},
+                    _ => {
+                        println!("UNEXPECTED i:{}, opt:{:?}, val:{:?}", i, opt, val);
+                        assert!(false);
+                    },
+                };
+                i += 1;
+                Ok(Continue)
+        });
+        assert_eq!(i, 2);
+        if let Err(ParseError::InvalidOpt(Short(o), _)) = rc {
+            assert_eq!(o, 'a');
+        } else {
+            assert!(false);
+        }
     }
 } // mod tests

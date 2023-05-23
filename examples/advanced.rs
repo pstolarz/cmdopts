@@ -87,7 +87,7 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
     let mut file_i = 0;
 
     parse_opts(
-        |opt| {
+        |opt, constr| {
             match opt {
                 Short(c) => {
                     match c {
@@ -96,7 +96,11 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
                         'c' => { opt_id.set(OptC); ValueOpt },
                         'd' => { opt_id.set(OptD); ValueOpt },
                         'h' => { opt_id.set(OptHelp); NoValueOpt },
-                        '-' => { opt_id.set(OptSwitch); NoValueOpt },
+                        '-' => {
+                            constr.not_in_group();
+                            opt_id.set(OptSwitch);
+                            NoValueOpt
+                        },
                         _ => InfoCode::InvalidOpt,
                     }
                 },
