@@ -239,16 +239,12 @@ macro_rules! process_h_rc {
     }
 }
 
-fn parse_opts_iter<I, Fi, Fh>(opts: I, opt_i: Fi, opt_h: Fh) -> Result<(), ParseError>
+fn parse_opts_iter<I, Fi, Fh>(opts: I, mut opt_i: Fi, mut opt_h: Fh) -> Result<(), ParseError>
 where
     I: Iterator<Item = String>,
     Fi: FnMut(&CmdOpt, &mut OptConstr) -> InfoCode,
     Fh: FnMut(&Option<CmdOpt>, &Option<OptVal>) -> Result<ProcessCode, ParseError>
 {
-    // convert to mutable
-    let mut opt_h = opt_h;
-    let mut opt_i = opt_i;
-
     let mut val_mode = false; // false: option-parsing-mode, true: value-parsing-mode
     let mut val_req = false;  // true is value is required for the parsed option
 
