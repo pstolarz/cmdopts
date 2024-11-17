@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2023 Piotr Stolarz
+// Copyright (c) 2023,2024 Piotr Stolarz
 // GNU-like Command line options parser.
 //
 // Distributed under the 2-clause BSD License (the License)
@@ -224,7 +224,7 @@ impl OptConstr {
     }
 
     #[inline]
-    fn is_not_in_group(&mut self) -> bool {
+    fn is_not_in_group(&self) -> bool {
         (self.0 & Self::NOT_IN_GROUP) != 0
     }
 }

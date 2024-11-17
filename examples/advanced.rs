@@ -1,14 +1,14 @@
-// 
-// Copyright (c) 2023 Piotr Stolarz
+//
+// Copyright (c) 2023,2024 Piotr Stolarz
 // GNU-like Command line options parser.
-// 
+//
 // Distributed under the 2-clause BSD License (the License)
 // see accompanying file LICENSE for details.
-// 
+//
 // This software is distributed WITHOUT ANY WARRANTY; without even the
 // implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 // See the License for more information.
-// 
+//
 
 use cmdopts::{parse_opts, InfoCode, ProcessCode, ParseError, CmdOpt};
 
@@ -64,24 +64,10 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
     use InfoCode::*;
     use ProcessCode::*;
     use ParseError::*;
-    use OptId::*;
     use std::cell::Cell;
 
-    #[derive(Clone)]
-    #[derive(Copy)]
-    enum OptId {
-        OptA,
-        OptB,
-        OptC,
-        OptD,
-        OptE,
-        OptHelp,
-        OptSwitch,
-    }
-    impl Default for OptId { fn default() -> Self { OptHelp } }
-
     // processed option id
-    let opt_id: Cell<OptId> = Default::default();
+    let opt_id = Cell::new('h');
 
     // file parsing index (1-based), 0 for option parsing mode
     let mut file_i = 0;
@@ -89,16 +75,13 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
     parse_opts(
         |opt, constr| {
             match opt {
-                Short(c) => {
+                &Short(c) => {
                     match c {
-                        'a' => { opt_id.set(OptA); NoValueOpt },
-                        'b' => { opt_id.set(OptB); ValueOpt },
-                        'c' => { opt_id.set(OptC); ValueOpt },
-                        'd' => { opt_id.set(OptD); ValueOpt },
-                        'h' => { opt_id.set(OptHelp); NoValueOpt },
+                        'a' | 'h'       => { opt_id.set(c); NoValueOpt },
+                        'b' | 'c' | 'd' => { opt_id.set(c); ValueOpt },
                         '-' => {
                             constr.not_in_group();
-                            opt_id.set(OptSwitch);
+                            opt_id.set('-');
                             NoValueOpt
                         },
                         _ => InfoCode::InvalidOpt,
@@ -106,11 +89,11 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
                 },
                 Long(s) => {
                     match s.as_str() {
-                        "long_a" => { opt_id.set(OptA); NoValueOpt },
-                        "long_b" => { opt_id.set(OptB); ValueOpt },
-                        "long_c" => { opt_id.set(OptC); ValueOpt },
-                        "long_e" => { opt_id.set(OptE); ValueOpt },
-                        "help" => { opt_id.set(OptHelp); NoValueOpt },
+                        "long_a" => { opt_id.set('a'); NoValueOpt },
+                        "long_b" => { opt_id.set('b'); ValueOpt },
+                        "long_c" => { opt_id.set('c'); ValueOpt },
+                        "long_e" => { opt_id.set('e'); ValueOpt },
+                        "help"   => { opt_id.set('h'); NoValueOpt },
                         _ => InfoCode::InvalidOpt,
                     }
                 },
@@ -138,15 +121,15 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
 
                 match opt_id.get() {
                     // print help and exit
-                    OptHelp => {
+                    'h' => {
                         opts.help = Some(());
                         return Ok(ProcessCode::Break);
                     },
-                    OptSwitch => {
+                    '-' => {
                         file_i = 1;
                         return Ok(ProcessCode::ToggleParsingMode);
                     },
-                    OptA => {
+                    'a' => {
                         opts.a_opt = Some(());
                     },
                     _ => {
@@ -163,13 +146,13 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
                 handled = true;
 
                 match opt_id.get() {
-                    OptC => {
+                    'c' => {
                         opts.c_opt = Some(val_str.clone());
                     },
-                    OptD => {
+                    'd' => {
                         opts.d_opt = Some(val_str.clone());
                     },
-                    OptE => {
+                    'e' => {
                         opts.e_opt = Some(val_str.clone());
                     },
                     _ => {
@@ -190,7 +173,7 @@ fn process_cmdopts(opts: &mut Options) -> Result<(), ParseError>
                 })?;
 
                 match opt_id.get() {
-                    OptB => {
+                    'b' => {
                         if val_i >= -10 && val_i <= 10 {
                             opts.b_opt = Some(val_i);
                         } else {
