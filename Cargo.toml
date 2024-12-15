@@ -1,6 +1,6 @@
 [package]
 name = "cmdopts"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Piotr Stolarz"]
 edition = "2021"
 description = "GNU-like command line options parser."
