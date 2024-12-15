@@ -10,22 +10,27 @@
 // See the License for more information.
 //
 
-use cmdopts::{parse_opts, InfoCode, ProcessCode, ParseError, CmdOpt};
+use cmdopts::{parse_opts, CmdOpt, InfoCode, ParseError, ProcessCode};
 
 #[allow(unused_imports)]
-pub fn main()
-{
+pub fn main() {
+    use std::cell::Cell;
     use CmdOpt::*;
     use InfoCode::*;
-    use ProcessCode::*;
-    use ParseError::*;
     use OptId::*;
-    use std::cell::Cell;
+    use ParseError::*;
+    use ProcessCode::*;
 
-    #[derive(Clone)]
-    #[derive(Copy)]
-    enum OptId { OptA, OptB }
-    impl Default for OptId { fn default() -> Self { OptA } }
+    #[derive(Clone, Copy)]
+    enum OptId {
+        OptA,
+        OptB,
+    }
+    impl Default for OptId {
+        fn default() -> Self {
+            OptA
+        }
+    }
     let opt_id: Cell<OptId> = Default::default();
 
     let rc = parse_opts(
@@ -36,28 +41,40 @@ pub fn main()
                 Short(c) => {
                     match c {
                         // -a, option w/o value
-                        'a' => { opt_id.set(OptA); NoValueOpt },
+                        'a' => {
+                            opt_id.set(OptA);
+                            NoValueOpt
+                        }
                         // -b, option w/value
-                        'b' => { opt_id.set(OptB); ValueOpt },
+                        'b' => {
+                            opt_id.set(OptB);
+                            ValueOpt
+                        }
                         _ => InfoCode::InvalidOpt,
                     }
-                },
+                }
                 Long(s) => {
                     match s.as_str() {
                         // long counterpart of the short options
-                        "long_a" => { opt_id.set(OptA); NoValueOpt },
-                        "long_b" => { opt_id.set(OptB); ValueOpt },
+                        "long_a" => {
+                            opt_id.set(OptA);
+                            NoValueOpt
+                        }
+                        "long_b" => {
+                            opt_id.set(OptB);
+                            ValueOpt
+                        }
                         _ => InfoCode::InvalidOpt,
                     }
-                },
+                }
             }
         },
-
         // Options handler
         //
         |opt, val| {
             // all parsed tokens must form options
-            opt.as_ref().ok_or(GenericErr("Non-option detected".to_string()))?;
+            opt.as_ref()
+                .ok_or(GenericErr("Non-option detected".to_string()))?;
 
             match opt_id.get() {
                 OptA => {
@@ -65,11 +82,12 @@ pub fn main()
                 }
                 OptB => {
                     println!("B option with {}", val.as_ref().unwrap().val);
-                },
+                }
             };
 
             Ok(ProcessCode::Continue)
-        });
+        },
+    );
 
     if rc.is_err() {
         eprintln!("[ERROR] {}", rc.unwrap_err());
